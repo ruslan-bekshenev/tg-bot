@@ -1,25 +1,25 @@
 require('dotenv').config()
+const fs = require('fs')
 
 const TelegramApi = require('node-telegram-bot-api')
 const token = `${process.env.BOT_ID}:${process.env.BOT_TOKEN}`
 
 const bot = new TelegramApi(token, { polling: true })
 
-const chats = {}
-
-const startGame = async (chatId) => {
-  await bot.sendMessage(chatId, `Сейчас я загадаю цифру от 0 до 9, а ты должен ее угадать`)
-  const randomNumber = Math.floor(Math.random() * 10)
-  chats[chatId] = randomNumber;
-  await bot.sendMessage(chatId, 'Отгадывай', gameOptions)
+function randomInteger(min, max) {
+  let rand = min - 0.5 + Math.random() * (max - min + 1);
+  return Math.round(rand);
 }
+
+const answers = ['ДА!', `Нет!`, `Не знаю!`]
+
 const start = () => {
   bot.setMyCommands([
     { command: '/start', description: 'Приветствие' },
     { command: '/info', description: 'Получить информацию' },
-    { command: '/kto_loh', description: 'Определяет лоха' },
-    { command: '/goroscope', description: 'Узнай свою судьбу на сегодня' },
-    { command: '/game', description: 'Просто какая-то игра' },
+    { command: '/kto_loh', description: 'Определяить лоха' },
+    { command: '/register', description: 'Регистрация нового пользователя' },
+    { command: '/solution', description: 'Помогает определиться' }
   ])
   
   bot.on('message', async msg => {
@@ -31,24 +31,44 @@ const start = () => {
     if (text === '/info') {
       return bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name} ${msg.from.last_name}`)
     }
+    if (text.indexOf('/solution') > -1) {
+      const answerIndex = randomInteger(0, 2)
+      return bot.sendMessage(chatId, `${answers[answerIndex]} ${msg.from.first_name} ${msg.from.last_name}`)
+    }
     if (text === '/kto_loh') {
-      console.log(msg)
-      return bot.sendMessage(chatId, `Ты ${msg.from.first_name} ${msg.from.last_name}`)
+      const ids =  fs.readFileSync(`${chatId}.txt`, 'utf-8', (err) => {
+        if (err) {
+          throw err
+        }
+      }).split('\r\n')
+      const indexLoh = randomInteger(0, ids.length - 1)
+      if (ids[indexLoh]) {
+        const currentLoh = await bot.getChatMember(chatId, +ids[indexLoh])
+        return bot.sendMessage(chatId, `На данный момент лохом является ${currentLoh.user.first_name ?? 'без имени'} ${currentLoh.user.last_name ?? 'без фамилии'}`)
+      }
+      return bot.sendMessage(chatId, `Лох не найден`)
+    }
+    if (text === '/register') {
+      let ids = []
+      if (fs.existsSync(`${chatId}.txt`)) {
+        ids = fs.readFileSync(`${chatId}.txt`, 'utf-8').split('\r\n', (err) => {
+          if (err) {
+            throw err
+          }
+        })
+      }
+      const findedId = ids.find((id) => +id === msg.from.id)
+      if (!findedId) {
+        fs.appendFileSync(`${chatId}.txt`, `${msg.from.id}\r\n`, (err) => {
+          if (err) {
+            throw err
+          }
+        })
+        return bot.sendMessage(chatId, `${msg.from.first_name} ${msg.from.last_name} успешно зарегистрировался!!!`)
+      }
+      return bot.sendMessage(chatId, `${msg.from.first_name} ${msg.from.last_name} уже зарегистрирован`)
     }
     return bot.sendMessage(chatId, 'Не понимать')
-  })
-  
-  bot.on('callback_query', msg => {
-    const data = msg.data;
-    const chatId = msg.message.chat.id
-    if (data === '/again') {
-      return startGame(chatId)
-    }
-    if (data === chats[chatId]) {
-      return bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
-    } else {
-      return bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
-    }
   })
 }
 
