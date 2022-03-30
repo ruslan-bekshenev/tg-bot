@@ -1,6 +1,7 @@
 require('dotenv').config()
 const fs = require('fs')
-
+const sequelize = require('./db')
+const { User, Chat, UserChat } = require('./models')
 const TelegramApi = require('node-telegram-bot-api')
 const token = `${process.env.BOT_ID}:${process.env.BOT_TOKEN}`
 
@@ -13,7 +14,15 @@ function randomInteger(min, max) {
 
 const answers = ['ДА!', `Нет!`, `Не знаю!`]
 
-const start = () => {
+const start = async () => {
+
+  try {
+    await sequelize.authenticate()
+    await sequelize.sync()
+  } catch (e) {
+    console.log('Подключение к бд сломалось')
+  }
+
   bot.setMyCommands([
     { command: '/start', description: 'Приветствие' },
     { command: '/info', description: 'Получить информацию' },
@@ -50,13 +59,12 @@ const start = () => {
     }
     if (text === '/register') {
       let ids = []
-      if (fs.existsSync(`${chatId}.txt`)) {
-        ids = fs.readFileSync(`${chatId}.txt`, 'utf-8').split('\r\n', (err) => {
-          if (err) {
-            throw err
-          }
-        })
+      try {
+        const user = await User.create({ where: { tgId: msg.from.id, firstName: msg.from.first_name, listName: msg.from.last_name, tgLogin: msg.from.username, chats: { chatId: `${msg.chat.id}`, title: msg.chat.title } } }, { include: Chat })
+      } catch (e) {
+        throw e
       }
+      
       const findedId = ids.find((id) => +id === msg.from.id)
       if (!findedId) {
         fs.appendFileSync(`${chatId}.txt`, `${msg.from.id}\r\n`, (err) => {
