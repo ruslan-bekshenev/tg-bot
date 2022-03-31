@@ -1,7 +1,7 @@
 require('dotenv').config()
 const fs = require('fs')
-const sequelize = require('./db')
-const { User, Chat, UserChat } = require('./models')
+const sequelize = require('./src/db')
+const { User, Chat, UserChat } = require('./src/models/index')
 const TelegramApi = require('node-telegram-bot-api')
 const token = `${process.env.BOT_ID}:${process.env.BOT_TOKEN}`
 
