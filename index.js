@@ -1,28 +1,26 @@
 require('dotenv').config()
 const fs = require('fs')
 const sequelize = require('./src/db')
-const { User, Chat, UserChat } = require('./src/models/index')
+const { User, Chat, UserChat } = require('./src/Models/index')
+const randomInteger = require('./src/Utils/randomInteger')
+
 const TelegramApi = require('node-telegram-bot-api')
 const token = `${process.env.BOT_ID}:${process.env.BOT_TOKEN}`
 
 const bot = new TelegramApi(token, { polling: true })
 
-function randomInteger(min, max) {
-  let rand = min - 0.5 + Math.random() * (max - min + 1);
-  return Math.round(rand);
-}
-
 const answers = ['ДА!', `Нет!`, `Не знаю!`]
 
-const start = async () => {
-
+const connectDB = () => {
   try {
     await sequelize.authenticate()
     await sequelize.sync()
   } catch (e) {
     console.log('Подключение к бд сломалось')
   }
+}
 
+const setCommands = () => {
   bot.setMyCommands([
     { command: '/start', description: 'Приветствие' },
     { command: '/info', description: 'Получить информацию' },
@@ -30,6 +28,11 @@ const start = async () => {
     { command: '/register', description: 'Регистрация нового пользователя' },
     { command: '/solution', description: 'Помогает определиться' }
   ])
+}
+
+const start = async () => {
+  connectDB()
+  setCommands()
   
   bot.on('message', async msg => {
     const text = msg.text;
